@@ -1,3 +1,4 @@
+import sys
 import cadquery as cq, pcbnew
 from typing import Dict, List, Tuple, TypeAlias, Union
 
@@ -80,7 +81,7 @@ class Board:
     def convert_shape(self, shapes: List[pcbnew.PCB_SHAPE]) -> cq.Sketch:
         minmax = lambda *l: (min(l), max(l))
         sketch = cq.Sketch()
-        line = False
+        line, full = False, 0
         for shape in shapes:
             match shape.GetShape():
                 case pcbnew.SHAPE_T_ARC:
@@ -89,19 +90,28 @@ class Board:
                 case pcbnew.SHAPE_T_SEGMENT:
                     line = True
                     sketch = sketch.segment(*[self.p(l) for l in (shape.GetStart(), shape.GetEnd())])
+                case pcbnew.SHAPE_T_CIRCLE:
+                    full += 1
+                    sketch = sketch.push([self.p(shape.GetCenter())]).circle(iu2mm(shape.GetRadius()))
                 case pcbnew.SHAPE_T_RECT:
+                    full += 1
                     start, end = shape.GetStart(), shape.GetEnd()
                     (x, X), (y, Y) = minmax(start.x, end.x), minmax(start.y, end.y)
                     sketch = sketch.push([self.p(shape.GetCenter())]).rect(iu2mm(X - x), iu2mm(Y - y)).reset()
                 case pcbnew.SHAPE_T_BEZIER:
-                    sketch = sketch.edge(bspline(list(map(self.p, [shape.GetStart(), shape.GetBezierC1(), shape.GetBezierC2(), shape.GetEnd()]))))
                     line = True
+                    sketch = sketch.edge(bspline(list(map(self.p, [shape.GetStart(), shape.GetBezierC1(), shape.GetBezierC2(), shape.GetEnd()]))))
                 case pcbnew.SHAPE_T_POLY:
+                    full += 1
                     shape = shape.GetPolyShape()
                     points = [self.p(shape.CVertex(i).getWxPoint()) for i in range(shape.VertexCount())]
                     sketch = sketch.polygon(points + [points[0]])
                 case s:
                     raise NotImplementedError(f"unhandled shape type: {s}")
+        if full > 0 and line:
+            print("warning: convert_shape: both complete and incomplete shapes used, shape may be undefined", file=sys.stderr)
+        if full > 1:
+            print("warning: convert_shape: more than 1 complete shapes used, shape may be undefined", file=sys.stderr)
         return sketch.assemble() if line else sketch
 
 def bspline(points: List[Tuple[float, float]]) -> cq.Edge:
