@@ -1,12 +1,21 @@
 import sys
 import cadquery as cq, pcbnew
-from typing import Dict, List, Tuple, TypeAlias, Union
+from typing import Callable, Dict, List, Tuple, TypeAlias, Union
+import traceback
+import warnings
+import sys
 
 from OCP.Geom import Geom_BSplineCurve
 from OCP.TColgp import TColgp_Array1OfPnt
 from OCP.TColStd import TColStd_Array1OfReal, TColStd_Array1OfInteger
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
 
+def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
+    log = file if hasattr(file,'write') else sys.stderr
+    traceback.print_stack(file=log)
+    log.write(warnings.formatwarning(message, category, filename, lineno, line))
+
+warnings.showwarning = warn_with_traceback
 iu2mm = pcbnew.Iu2Millimeter
 Component: TypeAlias = Union[str, pcbnew.FOOTPRINT]
 
@@ -109,9 +118,9 @@ class Board:
                 case s:
                     raise NotImplementedError(f"unhandled shape type: {s}")
         if full > 0 and line:
-            print("warning: convert_shape: both complete and incomplete shapes used, shape may be undefined", file=sys.stderr)
+            warnings.warn("convert_shape: both complete and incomplete shapes used, shape may be undefined")
         if full > 1:
-            print("warning: convert_shape: more than 1 complete shapes used, shape may be undefined", file=sys.stderr)
+            warnings.warn("convert_shape: more than 1 complete shapes used, shape may be undefined")
         return sketch.assemble() if line else sketch
 
 def bspline(points: List[Tuple[float, float]]) -> cq.Edge:
