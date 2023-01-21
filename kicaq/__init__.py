@@ -40,6 +40,12 @@ class Board:
     def fp(self, comp: Component) -> pcbnew.FOOTPRINT:
         return comp if isinstance(comp, pcbnew.FOOTPRINT) else self.board.FindFootprintByReference(comp)
 
+    def fps_where(self, f: Callable[[pcbnew.FOOTPRINT], bool]) -> list[pcbnew.FOOTPRINT]:
+        return [fp for fp in self.fps() if f(fp)]
+
+    def fps_with_val(self, v: str) -> list[pcbnew.FOOTPRINT]:
+        return self.fps_where(lambda fp: fp.GetValue() == v)
+
     @staticmethod
     def ref(comp: Component) -> str:
         return comp.GetReference() if isinstance(comp, pcbnew.FOOTPRINT) else comp
