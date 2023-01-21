@@ -1,6 +1,6 @@
 import sys
 import cadquery as cq, pcbnew
-from typing import Callable, Dict, List, Tuple, TypeAlias, Union
+from typing import Callable, Dict, List, Optional, Tuple, TypeAlias, Union
 import traceback
 import warnings
 import sys
@@ -28,6 +28,12 @@ class Board:
         rel = l - self.center
         return iu2mm(rel.x), -iu2mm(rel.y)
 
+    def x(self, x: int) -> float:
+        return iu2mm(x - self.center.x)
+
+    def y(self, y: int) -> float:
+        return iu2mm(y - self.center.y)
+
     @staticmethod
     def trans_model_path(p: str) -> str:
         envars = {"KIPRJMOD": ".", "KICAD6_3DMODEL_DIR": "/usr/share/kicad/3dmodels"}
@@ -53,7 +59,7 @@ class Board:
     def pos(self, comp: Component) -> Tuple[float, float]:
         return self.p(self.fp(comp).GetPosition())
 
-    def courtyard(self, comp: Component, front: bool = True) -> cq.Sketch:
+    def courtyard(self, comp: Component, front: bool = True) -> Optional[cq.Sketch]:
         return self.convert_shape(self.courtyard_raw(comp, front))
 
     def courtyard_raw(self, comp: Component, front: bool = True) -> List[pcbnew.PCB_SHAPE]:
@@ -62,19 +68,19 @@ class Board:
     def fps(self) -> List[pcbnew.FOOTPRINT]:
         return self.board.GetFootprints()
     
-    def edges(self) -> cq.Sketch:
+    def edges(self) -> Optional[cq.Sketch]:
         return self.layer(pcbnew.Edge_Cuts)
 
     def edges_raw(self) -> List[pcbnew.PCB_SHAPE]:
         return self.layer_raw(pcbnew.Edge_Cuts)
 
-    def layer(self, layer: int) -> cq.Sketch:
+    def layer(self, layer: int) -> Optional[cq.Sketch]:
         return self.convert_shape(self.layer_raw(layer))
 
     def layer_raw(self, layer: int) -> List[pcbnew.PCB_SHAPE]:
         return [g for g in self.board.GetDrawings() if g.GetLayer() == layer]
 
-    def layer_of(self, comp: Component, layer: int) -> cq.Sketch:
+    def layer_of(self, comp: Component, layer: int) -> Optional[cq.Sketch]:
         return self.convert_shape(self.layer_raw_of(comp, layer))
 
     def layer_raw_of(self, comp: Component, layer: int) -> List[pcbnew.PCB_SHAPE]:
@@ -93,7 +99,9 @@ class Board:
     def max_height(self, hmap: Dict[str, float], def_h: float, comps: List[Component]) -> float:
         return max(self.height(comp, hmap[ref] if (ref := Board.ref(comp)) in hmap else def_h) for comp in comps)
 
-    def convert_shape(self, shapes: List[pcbnew.PCB_SHAPE]) -> cq.Sketch:
+    def convert_shape(self, shapes: List[pcbnew.PCB_SHAPE]) -> Optional[cq.Sketch]:
+        if len(shapes) == 0:
+            return None
         minmax = lambda *l: (min(l), max(l))
         sketch = cq.Sketch()
         line, full = False, 0
