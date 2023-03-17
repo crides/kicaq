@@ -15,5 +15,8 @@ setuptools.setup(
     url="https://github.com/crides/kicaq",
     license='MIT',
     python_requires='>=3.10',
-    install_requires=["cadquery>=2"]
+    install_requires=[],
+    extras_require={
+        "cq": ["cadquery>=2"],
+    }
 )
